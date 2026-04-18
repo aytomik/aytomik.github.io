@@ -1,12 +1,15 @@
 module Main exposing (..)
 
 import Browser
+import Browser.Dom as Dom
+import Browser.Events
 import Browser.Navigation as Nav
 import Debug
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Page.Civ as Civ
 import Page.Home as Home
+import Task
 import Url
 import Url.Parser as UrlPar
 
@@ -29,22 +32,6 @@ routeParser =
 
 
 
--- MAIN
-
-
-main : Program () Model Msg
-main =
-    Browser.application
-        { init = init
-        , view = view
-        , update = update
-        , subscriptions = subscriptions
-        , onUrlChange = UrlChanged
-        , onUrlRequest = LinkClicked
-        }
-
-
-
 -- MODEL
 
 
@@ -58,7 +45,13 @@ type alias Model =
 
 init : () -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
 init flags url key =
-    ( { key = key, url = url, civPage = Civ.init, homePage = Home.init }, Cmd.none )
+    ( { key = key
+      , url = url
+      , civPage = Civ.init
+      , homePage = Home.init
+      }
+    , Task.perform GotViewport Dom.getViewport
+    )
 
 
 
@@ -70,6 +63,8 @@ type Msg
     | UrlChanged Url.Url
     | CivPageMsg Civ.Msg
     | HomePageMsg Home.Msg
+    | WindowResized Int Int
+    | GotViewport Dom.Viewport
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
@@ -102,14 +97,28 @@ update msg model =
             in
             ( { model | homePage = newHomeModel }, Cmd.none )
 
+        WindowResized w h ->
+            let
+                civPage =
+                    model.civPage
+            in
+            ( { model | civPage = { civPage | size = ( w, h ) } }, Cmd.none )
+
+        GotViewport viewport ->
+            let
+                civPage =
+                    model.civPage
+            in
+            ( { model | civPage = { civPage | size = ( round viewport.viewport.width, round viewport.viewport.height ) } }, Cmd.none )
+
 
 
 -- SUBSCRIPTIONS
 
 
 subscriptions : Model -> Sub Msg
-subscriptions _ =
-    Sub.none
+subscriptions model =
+    Browser.Events.onResize WindowResized
 
 
 
@@ -166,3 +175,19 @@ view model =
 viewLink : String -> Html msg
 viewLink path =
     li [] [ a [ href path ] [ text path ] ]
+
+
+
+-- MAIN
+
+
+main : Program () Model Msg
+main =
+    Browser.application
+        { init = init
+        , view = view
+        , update = update
+        , subscriptions = subscriptions
+        , onUrlChange = UrlChanged
+        , onUrlRequest = LinkClicked
+        }
