@@ -132,8 +132,8 @@ drawMap model =
         ( w, h ) =
             model.size
     in
-    Svg.svg [ SvgAtt.width "100%", SvgAtt.height "100%" ]
-        [ drawHex (500) (500) 40
+    Svg.svg [ SvgAtt.width (String.fromInt (w - 20)), SvgAtt.height (String.fromInt (h - 50)) ]
+        [ drawHex (w // 2) (h // 2) 40
         ]
 
 
