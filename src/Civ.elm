@@ -1,10 +1,16 @@
-module Page.Civ exposing (Model, Msg, init, update, view)
+module Civ exposing (Model, Msg, init, update, view)
 
+import Browser
+import Browser.Dom as Dom
+import Browser.Events
+import Browser.Navigation as Nav
 import Dict exposing (Dict)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Svg
 import Svg.Attributes as SvgAtt
+import Task
+import Url
 
 
 type TileType
@@ -39,11 +45,15 @@ type alias Model =
 
 type Msg
     = Move Id Coords
+    | GotViewport Dom.Viewport
+    | WindowResized Int Int
+    | UrlChanged Url.Url
+    | LinkClicked Browser.UrlRequest
 
 
-init : Model
-init =
-    { map = Dict.empty, size = ( 1084, 1920 ) }
+init : () -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
+init flags url key =
+    ( { map = Dict.empty, size = ( 1084, 1920 ) }, Task.perform GotViewport Dom.getViewport )
 
 
 move : Id -> Coords -> Model -> Model
@@ -55,11 +65,23 @@ move id dcor model =
     newModel
 
 
-update : Msg -> Model -> Model
+update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         Move id dst ->
-            move id dst model
+            ( move id dst model, Cmd.none )
+
+        WindowResized w h ->
+            ( { model | size = ( w, h ) }, Cmd.none )
+
+        GotViewport viewport ->
+            ( { model | size = ( round viewport.viewport.width, round viewport.viewport.height ) }, Cmd.none )
+
+        UrlChanged _ ->
+            ( model, Cmd.none )
+
+        LinkClicked _ ->
+            ( model, Cmd.none )
 
 
 
@@ -137,12 +159,53 @@ drawMap model =
         ]
 
 
-view : Model -> Html Msg
+view : Model -> Browser.Document Msg
 view model =
-    div
-        [ style "padding" "10px"
-        , style "width" "100%"
-        , style "hight" "100%"
+    { title = "aytomik"
+    , body =
+        [ div
+            [ style "background-color" "orangered"
+            , style "width" "100%"
+            , style "height" "30px"
+            , style "padding" "5px"
+            , style "display" "flex"
+            , style "flex-direction" "row"
+            , style "gap" "10px"
+            ]
+            [ a [ href "/" ] [ text "fuck you" ]
+            , text "nothing to look for here, get fucking lost"
+            ]
+        , div
+            [ style "padding" "10px"
+            , style "width" "100%"
+            , style "hight" "100%"
+            ]
+            [ drawMap model
+            ]
         ]
-        [ drawMap model
-        ]
+    }
+
+
+
+-- SUBSCRIPTIONS
+
+
+subscriptions : Model -> Sub Msg
+subscriptions model =
+    Browser.Events.onResize WindowResized
+
+
+
+-- MAIN
+
+
+main : Program () Model Msg
+main =
+    Browser.application
+        { init = init
+        , view = view
+        , update = update
+        , subscriptions = subscriptions
+        , onUrlChange = UrlChanged
+        , onUrlRequest = LinkClicked
+        }
