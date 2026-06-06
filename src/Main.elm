@@ -76,6 +76,7 @@ view model =
             , style "gap" "10px"
             ]
             [ a [ href "/" ] [ text "fuck you" ]
+            , a [ href "/pages/civ/" ] [ text "fuck you civ" ]
             , text "nothing to look for here, get fucking lost"
             ]
         , text "why are you still here?"
