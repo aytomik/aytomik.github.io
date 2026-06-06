@@ -65,6 +65,11 @@ createXY xs ys =
     List.concatMap (\x -> List.map (\y -> ( x, y )) ys) xs
 
 
+fractionalModBy : Float -> Float -> Float
+fractionalModBy modulus x =
+    x - modulus * toFloat (floor (x / modulus))
+
+
 move : Id -> Coords -> Model -> Model
 move id dcor model =
     let
@@ -172,29 +177,41 @@ drawGrid model =
         hf =
             toFloat h
 
+        xoff =
+            fractionalModBy (wf / 2) (toFloat r * sqrt 3) * -1
+
+        yoff =
+            fractionalModBy (hf / 2) (toFloat r * 3) * -1
+
         wn1 =
             ceiling (wf / (r * sqrt 3))
-        wn2 = wn1 + 1
+
+        wn2 =
+            wn1 + 1
 
         yn1 =
             1 + 2 * ceiling (hf / (6 * r))
-        yn2 = yn1 - 2
+
+        yn2 =
+            yn1 - 2
 
         x1 =
-            List.map (\x -> floor (toFloat x * sqrt 3 * r)) (List.range 0 wn1)
+            List.map (\x -> floor (xoff + toFloat x * sqrt 3 * r)) (List.range 0 wn1)
+
         x2 =
-            List.map (\x -> floor (toFloat x * sqrt 3 * r + sqrt 3 * r / 2)) (List.range 0 wn2)
+            List.map (\x -> floor (xoff + toFloat x * sqrt 3 * r + sqrt 3 * r / 2)) (List.range 0 wn2)
 
         y1 =
-            List.map (\y -> y * 3 * r) (List.range 0 yn1)
-        y2 = 
-            List.map (\y -> floor(toFloat y * 3 * r + 1.5 * r)) (List.range 0 yn2)
+            List.map (\y -> floor (yoff + toFloat y * 3 * r)) (List.range 0 yn1)
+
+        y2 =
+            List.map (\y -> floor (yoff + toFloat y * 3 * r + 1.5 * r)) (List.range 0 yn2)
 
         coords =
-          List.concat [
-            createXY x1 y1,
-            createXY x2 y2
-            ]
+            List.concat
+                [ createXY x1 y1
+                , createXY x2 y2
+                ]
 
         -- coords =
         --     [ ( 0, 0 ), ( w // 2, h // 2 ), ( w - 100, h - 100 ), ( 20, 20 ), ( 100, 0 ) ]
