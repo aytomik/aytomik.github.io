@@ -13,6 +13,10 @@ import Task
 import Url
 
 
+hexRad =
+    40
+
+
 type TileType
     = Tree Int
     | Stone Int
@@ -54,6 +58,11 @@ type Msg
 init : () -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
 init flags url key =
     ( { map = Dict.empty, size = ( 1084, 1920 ) }, Task.perform GotViewport Dom.getViewport )
+
+
+createXY : List Int -> List Int -> List ( Int, Int )
+createXY xs ys =
+    List.concatMap (\x -> List.map (\y -> ( x, y )) ys) xs
 
 
 move : Id -> Coords -> Model -> Model
@@ -148,6 +157,52 @@ drawHex x y r =
     Svg.polygon [ SvgAtt.points path, SvgAtt.fill "white", SvgAtt.stroke "black" ] []
 
 
+drawGrid : Model -> Html Msg
+drawGrid model =
+    let
+        ( w, h ) =
+            model.size
+
+        r =
+            hexRad
+
+        wf =
+            toFloat w
+
+        hf =
+            toFloat h
+
+        wn1 =
+            ceiling (wf / (r * sqrt 3))
+        wn2 = wn1 + 1
+
+        yn1 =
+            1 + 2 * ceiling (hf / (6 * r))
+        yn2 = yn1 - 2
+
+        x1 =
+            List.map (\x -> floor (toFloat x * sqrt 3 * r)) (List.range 0 wn1)
+        x2 =
+            List.map (\x -> floor (toFloat x * sqrt 3 * r + sqrt 3 * r / 2)) (List.range 0 wn2)
+
+        y1 =
+            List.map (\y -> y * 3 * r) (List.range 0 yn1)
+        y2 = 
+            List.map (\y -> floor(toFloat y * 3 * r + 1.5 * r)) (List.range 0 yn2)
+
+        coords =
+          List.concat [
+            createXY x1 y1,
+            createXY x2 y2
+            ]
+
+        -- coords =
+        --     [ ( 0, 0 ), ( w // 2, h // 2 ), ( w - 100, h - 100 ), ( 20, 20 ), ( 100, 0 ) ]
+    in
+    Svg.svg [ SvgAtt.width (String.fromInt (w - 20)), SvgAtt.height (String.fromInt (h - 50)) ]
+        (List.map (\( x, y ) -> drawHex x y r) coords)
+
+
 drawMap : Model -> Html Msg
 drawMap model =
     let
@@ -155,7 +210,7 @@ drawMap model =
             model.size
     in
     Svg.svg [ SvgAtt.width (String.fromInt (w - 20)), SvgAtt.height (String.fromInt (h - 50)) ]
-        [ drawHex (w // 2) (h // 2) 40
+        [ drawGrid model
         ]
 
 
