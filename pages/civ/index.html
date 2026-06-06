@@ -5182,51 +5182,13 @@ var $elm$browser$Browser$application = _Browser_application;
 var $author$project$Civ$GotViewport = function (a) {
 	return {$: 'GotViewport', a: a};
 };
+var $elm$browser$Browser$Dom$getViewport = _Browser_withWindow(_Browser_getViewport);
+var $author$project$Civ$Person = {$: 'Person'};
+var $author$project$Civ$Tree = function (a) {
+	return {$: 'Tree', a: a};
+};
 var $elm$core$Dict$RBEmpty_elm_builtin = {$: 'RBEmpty_elm_builtin'};
 var $elm$core$Dict$empty = $elm$core$Dict$RBEmpty_elm_builtin;
-var $elm$browser$Browser$Dom$getViewport = _Browser_withWindow(_Browser_getViewport);
-var $author$project$Civ$init = F3(
-	function (flags, url, key) {
-		return _Utils_Tuple2(
-			{
-				map: $elm$core$Dict$empty,
-				size: _Utils_Tuple2(1084, 1920)
-			},
-			A2($elm$core$Task$perform, $author$project$Civ$GotViewport, $elm$browser$Browser$Dom$getViewport));
-	});
-var $author$project$Civ$WindowResized = F2(
-	function (a, b) {
-		return {$: 'WindowResized', a: a, b: b};
-	});
-var $elm$browser$Browser$Events$Window = {$: 'Window'};
-var $elm$json$Json$Decode$field = _Json_decodeField;
-var $elm$json$Json$Decode$int = _Json_decodeInt;
-var $elm$browser$Browser$Events$MySub = F3(
-	function (a, b, c) {
-		return {$: 'MySub', a: a, b: b, c: c};
-	});
-var $elm$browser$Browser$Events$State = F2(
-	function (subs, pids) {
-		return {pids: pids, subs: subs};
-	});
-var $elm$browser$Browser$Events$init = $elm$core$Task$succeed(
-	A2($elm$browser$Browser$Events$State, _List_Nil, $elm$core$Dict$empty));
-var $elm$browser$Browser$Events$nodeToKey = function (node) {
-	if (node.$ === 'Document') {
-		return 'd_';
-	} else {
-		return 'w_';
-	}
-};
-var $elm$browser$Browser$Events$addKey = function (sub) {
-	var node = sub.a;
-	var name = sub.b;
-	return _Utils_Tuple2(
-		_Utils_ap(
-			$elm$browser$Browser$Events$nodeToKey(node),
-			name),
-		sub);
-};
 var $elm$core$Dict$Black = {$: 'Black'};
 var $elm$core$Dict$RBNode_elm_builtin = F5(
 	function (a, b, c, d, e) {
@@ -5347,6 +5309,70 @@ var $elm$core$Dict$fromList = function (assocs) {
 			}),
 		$elm$core$Dict$empty,
 		assocs);
+};
+var $author$project$Civ$testMap = $elm$core$Dict$fromList(
+	_List_fromArray(
+		[
+			_Utils_Tuple2(
+			1,
+			{
+				coords: {x: 0, y: 0, z: 0},
+				tileType: $author$project$Civ$Tree(3)
+			}),
+			_Utils_Tuple2(
+			2,
+			{
+				coords: {x: 0, y: 3, z: 0},
+				tileType: $author$project$Civ$Tree(3)
+			}),
+			_Utils_Tuple2(
+			3,
+			{
+				coords: {x: 1, y: 0, z: 0},
+				tileType: $author$project$Civ$Person
+			})
+		]));
+var $author$project$Civ$init = F3(
+	function (flags, url, key) {
+		return _Utils_Tuple2(
+			{
+				map: $author$project$Civ$testMap,
+				size: _Utils_Tuple2(1084, 1920)
+			},
+			A2($elm$core$Task$perform, $author$project$Civ$GotViewport, $elm$browser$Browser$Dom$getViewport));
+	});
+var $author$project$Civ$WindowResized = F2(
+	function (a, b) {
+		return {$: 'WindowResized', a: a, b: b};
+	});
+var $elm$browser$Browser$Events$Window = {$: 'Window'};
+var $elm$json$Json$Decode$field = _Json_decodeField;
+var $elm$json$Json$Decode$int = _Json_decodeInt;
+var $elm$browser$Browser$Events$MySub = F3(
+	function (a, b, c) {
+		return {$: 'MySub', a: a, b: b, c: c};
+	});
+var $elm$browser$Browser$Events$State = F2(
+	function (subs, pids) {
+		return {pids: pids, subs: subs};
+	});
+var $elm$browser$Browser$Events$init = $elm$core$Task$succeed(
+	A2($elm$browser$Browser$Events$State, _List_Nil, $elm$core$Dict$empty));
+var $elm$browser$Browser$Events$nodeToKey = function (node) {
+	if (node.$ === 'Document') {
+		return 'd_';
+	} else {
+		return 'w_';
+	}
+};
+var $elm$browser$Browser$Events$addKey = function (sub) {
+	var node = sub.a;
+	var name = sub.b;
+	return _Utils_Tuple2(
+		_Utils_ap(
+			$elm$browser$Browser$Events$nodeToKey(node),
+			name),
+		sub);
 };
 var $elm$core$Process$kill = _Scheduler_kill;
 var $elm$core$Dict$foldl = F3(
@@ -5742,6 +5768,8 @@ var $author$project$Civ$hexRad = 40;
 var $elm$svg$Svg$svg = $elm$svg$Svg$trustedNode('svg');
 var $elm$svg$Svg$Attributes$width = _VirtualDom_attribute('width');
 var $author$project$Civ$drawGrid = function (model) {
+	var yoff = 0;
+	var xoff = 0;
 	var r = $author$project$Civ$hexRad;
 	var _v0 = model.size;
 	var w = _v0.a;
@@ -5751,14 +5779,14 @@ var $author$project$Civ$drawGrid = function (model) {
 	var y1 = A2(
 		$elm$core$List$map,
 		function (y) {
-			return (y * 3) * r;
+			return $elm$core$Basics$floor(yoff + ((y * 3) * r));
 		},
 		A2($elm$core$List$range, 0, yn1));
 	var yn2 = yn1 - 2;
 	var y2 = A2(
 		$elm$core$List$map,
 		function (y) {
-			return $elm$core$Basics$floor(((y * 3) * r) + (1.5 * r));
+			return $elm$core$Basics$floor((yoff + ((y * 3) * r)) + (1.5 * r));
 		},
 		A2($elm$core$List$range, 0, yn2));
 	var wf = w;
@@ -5769,14 +5797,14 @@ var $author$project$Civ$drawGrid = function (model) {
 		$elm$core$List$map,
 		function (x) {
 			return $elm$core$Basics$floor(
-				((x * $elm$core$Basics$sqrt(3)) * r) + (($elm$core$Basics$sqrt(3) * r) / 2));
+				(xoff + ((x * $elm$core$Basics$sqrt(3)) * r)) + (($elm$core$Basics$sqrt(3) * r) / 2));
 		},
 		A2($elm$core$List$range, 0, wn2));
 	var x1 = A2(
 		$elm$core$List$map,
 		function (x) {
 			return $elm$core$Basics$floor(
-				(x * $elm$core$Basics$sqrt(3)) * r);
+				xoff + ((x * $elm$core$Basics$sqrt(3)) * r));
 		},
 		A2($elm$core$List$range, 0, wn1));
 	var coords = $elm$core$List$concat(
@@ -5803,6 +5831,89 @@ var $author$project$Civ$drawGrid = function (model) {
 			},
 			coords));
 };
+var $elm$svg$Svg$circle = $elm$svg$Svg$trustedNode('circle');
+var $elm$svg$Svg$Attributes$cx = _VirtualDom_attribute('cx');
+var $elm$svg$Svg$Attributes$cy = _VirtualDom_attribute('cy');
+var $author$project$Civ$hex2xy = function (_v0) {
+	var x = _v0.x;
+	var y = _v0.y;
+	var z = _v0.z;
+	return _Utils_Tuple2(
+		$elm$core$Basics$floor(($author$project$Civ$hexRad * 2) * ((x + (y / 2)) - (z / 2))),
+		$elm$core$Basics$floor(
+			((($author$project$Civ$hexRad * 2) * (y + z)) * $elm$core$Basics$sqrt(3)) / 2));
+};
+var $elm$svg$Svg$Attributes$r = _VirtualDom_attribute('r');
+var $author$project$Civ$renderTile = F2(
+	function (_v0, tile) {
+		var w = _v0.a;
+		var h = _v0.b;
+		var yoff = 0;
+		var xoff = 0;
+		var _v1 = $author$project$Civ$hex2xy(tile.coords);
+		var x1 = _v1.a;
+		var y1 = _v1.b;
+		var x = (xoff + x1) + ((w / 2) | 0);
+		var y = (yoff + y1) + ((h / 2) | 0);
+		var _v2 = tile.tileType;
+		if (_v2.$ === 'Tree') {
+			return A2(
+				$elm$svg$Svg$circle,
+				_List_fromArray(
+					[
+						$elm$svg$Svg$Attributes$cx(
+						$elm$core$String$fromInt(x)),
+						$elm$svg$Svg$Attributes$cy(
+						$elm$core$String$fromInt(y)),
+						$elm$svg$Svg$Attributes$r('20'),
+						$elm$svg$Svg$Attributes$fill('green')
+					]),
+				_List_Nil);
+		} else {
+			return A2(
+				$elm$svg$Svg$circle,
+				_List_fromArray(
+					[
+						$elm$svg$Svg$Attributes$cx(
+						$elm$core$String$fromInt(x)),
+						$elm$svg$Svg$Attributes$cy(
+						$elm$core$String$fromInt(y)),
+						$elm$svg$Svg$Attributes$r('20'),
+						$elm$svg$Svg$Attributes$fill('#ff4500')
+					]),
+				_List_Nil);
+		}
+	});
+var $elm$core$Dict$values = function (dict) {
+	return A3(
+		$elm$core$Dict$foldr,
+		F3(
+			function (key, value, valueList) {
+				return A2($elm$core$List$cons, value, valueList);
+			}),
+		_List_Nil,
+		dict);
+};
+var $author$project$Civ$drawTiles = function (model) {
+	var _v0 = model.size;
+	var w = _v0.a;
+	var h = _v0.b;
+	return A2(
+		$elm$svg$Svg$svg,
+		_List_fromArray(
+			[
+				$elm$svg$Svg$Attributes$width(
+				$elm$core$String$fromInt(w - 20)),
+				$elm$svg$Svg$Attributes$height(
+				$elm$core$String$fromInt(h - 50))
+			]),
+		A2(
+			$elm$core$List$map,
+			function (tile) {
+				return A2($author$project$Civ$renderTile, model.size, tile);
+			},
+			$elm$core$Dict$values(model.map)));
+};
 var $author$project$Civ$drawMap = function (model) {
 	var _v0 = model.size;
 	var w = _v0.a;
@@ -5818,7 +5929,8 @@ var $author$project$Civ$drawMap = function (model) {
 			]),
 		_List_fromArray(
 			[
-				$author$project$Civ$drawGrid(model)
+				$author$project$Civ$drawGrid(model),
+				$author$project$Civ$drawTiles(model)
 			]));
 };
 var $elm$json$Json$Encode$string = _Json_wrap;

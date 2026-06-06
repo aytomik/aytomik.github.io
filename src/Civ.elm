@@ -19,7 +19,7 @@ hexRad =
 
 type TileType
     = Tree Int
-    | Stone Int
+      -- | Stone Int
     | Person
 
 
@@ -55,9 +55,24 @@ type Msg
     | LinkClicked Browser.UrlRequest
 
 
+testMap : Map
+
+
+
+-- testMap = Dict.empty
+
+
+testMap =
+    Dict.fromList
+        [ ( 1, { tileType = Tree 3, coords = { x = 0, y = 0, z = 0 } } )
+        , ( 2, { tileType = Tree 3, coords = { x = 0, y = 3, z = 0 } } )
+        , ( 3, { tileType = Person, coords = { x = 1, y = 0, z = 0 } } )
+        ]
+
+
 init : () -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
 init flags url key =
-    ( { map = Dict.empty, size = ( 1084, 1920 ) }, Task.perform GotViewport Dom.getViewport )
+    ( { map = testMap, size = ( 1084, 1920 ) }, Task.perform GotViewport Dom.getViewport )
 
 
 createXY : List Int -> List Int -> List ( Int, Int )
@@ -68,6 +83,11 @@ createXY xs ys =
 fractionalModBy : Float -> Float -> Float
 fractionalModBy modulus x =
     x - modulus * toFloat (floor (x / modulus))
+
+
+hex2xy : Coords -> ( Int, Int )
+hex2xy { x, y, z } =
+    ( floor (hexRad * 2 * (x + y / 2 - z / 2)), floor (hexRad * 2 * (y + z) * sqrt 3 / 2) )
 
 
 move : Id -> Coords -> Model -> Model
@@ -177,11 +197,13 @@ drawGrid model =
         hf =
             toFloat h
 
-        xoff =
-            fractionalModBy (wf / 2) (toFloat r * sqrt 3) * -1
+        -- xoff =
+        --     fractionalModBy (toFloat r * sqrt 3) (wf / 2) * -1
+        xoff = 0
 
-        yoff =
-            fractionalModBy (hf / 2) (toFloat r * 3) * -1
+        -- yoff =
+        --     fractionalModBy (toFloat r * 3) (hf / 2) * -1
+        yoff = 0
 
         wn1 =
             ceiling (wf / (r * sqrt 3))
@@ -220,6 +242,44 @@ drawGrid model =
         (List.map (\( x, y ) -> drawHex x y r) coords)
 
 
+renderTile : ( Int, Int ) -> Tile -> Html Msg
+renderTile ( w, h ) tile =
+    let
+        ( x1, y1 ) =
+            hex2xy tile.coords
+
+        -- xoff =
+        --     floor (fractionalModBy (toFloat hexRad * sqrt 3) (toFloat w / 2) * -1)
+        xoff = 0
+
+        -- yoff =
+        --     floor (fractionalModBy (toFloat hexRad * 3) (toFloat h / 2) * -1)
+        yoff = 0
+
+        x =
+            xoff + x1 + w // 2
+
+        y =
+            yoff + y1 + h // 2
+    in
+    case tile.tileType of
+        Tree _ ->
+            Svg.circle [ SvgAtt.cx (String.fromInt x), SvgAtt.cy (String.fromInt y), SvgAtt.r "20", SvgAtt.fill "green" ] []
+
+        Person ->
+            Svg.circle [ SvgAtt.cx (String.fromInt x), SvgAtt.cy (String.fromInt y), SvgAtt.r "20", SvgAtt.fill "#ff4500" ] []
+
+
+drawTiles : Model -> Html Msg
+drawTiles model =
+    let
+        ( w, h ) =
+            model.size
+    in
+    Svg.svg [ SvgAtt.width (String.fromInt (w - 20)), SvgAtt.height (String.fromInt (h - 50)) ]
+        (List.map (\tile -> renderTile model.size tile) (Dict.values model.map))
+
+
 drawMap : Model -> Html Msg
 drawMap model =
     let
@@ -228,6 +288,7 @@ drawMap model =
     in
     Svg.svg [ SvgAtt.width (String.fromInt (w - 20)), SvgAtt.height (String.fromInt (h - 50)) ]
         [ drawGrid model
+        , drawTiles model
         ]
 
 
