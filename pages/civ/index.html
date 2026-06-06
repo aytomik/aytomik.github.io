@@ -5661,6 +5661,36 @@ var $author$project$Civ$update = F2(
 	});
 var $elm$html$Html$a = _VirtualDom_node('a');
 var $elm$html$Html$div = _VirtualDom_node('div');
+var $elm$core$List$append = F2(
+	function (xs, ys) {
+		if (!ys.b) {
+			return xs;
+		} else {
+			return A3($elm$core$List$foldr, $elm$core$List$cons, ys, xs);
+		}
+	});
+var $elm$core$List$concat = function (lists) {
+	return A3($elm$core$List$foldr, $elm$core$List$append, _List_Nil, lists);
+};
+var $elm$core$List$concatMap = F2(
+	function (f, list) {
+		return $elm$core$List$concat(
+			A2($elm$core$List$map, f, list));
+	});
+var $author$project$Civ$createXY = F2(
+	function (xs, ys) {
+		return A2(
+			$elm$core$List$concatMap,
+			function (x) {
+				return A2(
+					$elm$core$List$map,
+					function (y) {
+						return _Utils_Tuple2(x, y);
+					},
+					ys);
+			},
+			xs);
+	});
 var $elm$svg$Svg$Attributes$fill = _VirtualDom_attribute('fill');
 var $elm$svg$Svg$Attributes$points = _VirtualDom_attribute('points');
 var $elm$svg$Svg$trustedNode = _VirtualDom_nodeNS('http://www.w3.org/2000/svg');
@@ -5708,8 +5738,71 @@ var $author$project$Civ$drawHex = F3(
 			_List_Nil);
 	});
 var $elm$svg$Svg$Attributes$height = _VirtualDom_attribute('height');
+var $author$project$Civ$hexRad = 40;
 var $elm$svg$Svg$svg = $elm$svg$Svg$trustedNode('svg');
 var $elm$svg$Svg$Attributes$width = _VirtualDom_attribute('width');
+var $author$project$Civ$drawGrid = function (model) {
+	var r = $author$project$Civ$hexRad;
+	var _v0 = model.size;
+	var w = _v0.a;
+	var h = _v0.b;
+	var hf = h;
+	var yn1 = 1 + (2 * $elm$core$Basics$ceiling(hf / (6 * r)));
+	var y1 = A2(
+		$elm$core$List$map,
+		function (y) {
+			return (y * 3) * r;
+		},
+		A2($elm$core$List$range, 0, yn1));
+	var yn2 = yn1 - 2;
+	var y2 = A2(
+		$elm$core$List$map,
+		function (y) {
+			return $elm$core$Basics$floor(((y * 3) * r) + (1.5 * r));
+		},
+		A2($elm$core$List$range, 0, yn2));
+	var wf = w;
+	var wn1 = $elm$core$Basics$ceiling(
+		wf / (r * $elm$core$Basics$sqrt(3)));
+	var wn2 = wn1 + 1;
+	var x2 = A2(
+		$elm$core$List$map,
+		function (x) {
+			return $elm$core$Basics$floor(
+				((x * $elm$core$Basics$sqrt(3)) * r) + (($elm$core$Basics$sqrt(3) * r) / 2));
+		},
+		A2($elm$core$List$range, 0, wn2));
+	var x1 = A2(
+		$elm$core$List$map,
+		function (x) {
+			return $elm$core$Basics$floor(
+				(x * $elm$core$Basics$sqrt(3)) * r);
+		},
+		A2($elm$core$List$range, 0, wn1));
+	var coords = $elm$core$List$concat(
+		_List_fromArray(
+			[
+				A2($author$project$Civ$createXY, x1, y1),
+				A2($author$project$Civ$createXY, x2, y2)
+			]));
+	return A2(
+		$elm$svg$Svg$svg,
+		_List_fromArray(
+			[
+				$elm$svg$Svg$Attributes$width(
+				$elm$core$String$fromInt(w - 20)),
+				$elm$svg$Svg$Attributes$height(
+				$elm$core$String$fromInt(h - 50))
+			]),
+		A2(
+			$elm$core$List$map,
+			function (_v1) {
+				var x = _v1.a;
+				var y = _v1.b;
+				return A3($author$project$Civ$drawHex, x, y, r);
+			},
+			coords));
+};
 var $author$project$Civ$drawMap = function (model) {
 	var _v0 = model.size;
 	var w = _v0.a;
@@ -5725,7 +5818,7 @@ var $author$project$Civ$drawMap = function (model) {
 			]),
 		_List_fromArray(
 			[
-				A3($author$project$Civ$drawHex, (w / 2) | 0, (h / 2) | 0, 40)
+				$author$project$Civ$drawGrid(model)
 			]));
 };
 var $elm$json$Json$Encode$string = _Json_wrap;
