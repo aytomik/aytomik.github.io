@@ -97,17 +97,9 @@ testMap =
         pStart =
             ( 5, 1, 0 )
 
-        testPath =
-            createPath pStart ( -10, -2, 0 )
-
         testPathing : Pathing
         testPathing =
-            case testPath of
-                cStep :: ntep :: path ->
-                    { currentStep = cStep, nextStep = ntep, path = path }
-
-                _ ->
-                    { currentStep = ( 1, 0, 0 ), nextStep = ( 0, 0, 0 ), path = testPath }
+            { currentStep = pStart, nextStep = pStart, path = [] }
     in
     Dict.fromList
         [ ( 1, { tileType = Person testPathing Idle, coords = pStart } )
@@ -165,13 +157,19 @@ createPath s e =
         dz =
             ez - sz
 
-        md =
-            List.foldl (\d m -> abs d |> Basics.max m) 0 [ dx, dy, dz ]
+        dxs =
+            List.repeat (abs <| round dx) ( dx / abs dx, 0, 0 )
+        dys =
+            List.repeat (abs <| round dy) ( 0, dy / abs dy, 0 )
+        dzs =
+            List.repeat (abs <| round dz) ( 0, 0, dz / abs dz )
+        ds = List.concat [dxs, dys, dzs]
 
-        step it st d =
-            (toFloat it * d / md + st) |> floor |> toFloat
+        step (x1, y1, z1) ((x2, y2, z2), path) = let newLast = (x1 + x2, y1 + y2, z1 + z2)in (newLast, path ++ [newLast])
+
+        (_, resPath) = List.foldl step (s, [s]) ds
     in
-    List.map (\it -> ( step it sx dx, step it sy dy, step it sz dz )) <| List.range 0 (floor md)
+    resPath
 
 
 dispatch : msg -> Cmd msg
@@ -228,8 +226,15 @@ move id model =
                 isStepChange =
                     List.all ((>=) (1 / fps)) [ x + dx - ex, y + dy - ey, z + dz - ez ]
 
-                isDoneWalking = currentStep == nextStep
+                isDoneWalking =
+                    List.length path < 1
 
+                shit =
+                    ( x + dx - ex, y + dy - ey, z + dz - ez )
+
+                -- _ = Debug.log "new crs" newCrs
+                -- _ = Debug.log "check" shit
+                -- _ = Debug.log "limit" (1 / fps)
                 newPathing : Pathing
                 newPathing =
                     case path of
@@ -246,7 +251,8 @@ move id model =
                             (Maybe.map
                                 (\tile ->
                                     { tile
-                                        | tileType = Person pathing Idle
+                                        | coords = (toFloat <| round x, toFloat <| round y, toFloat <| round z)
+                                        , tileType = Person pathing (Debug.log "done walking" Idle)
                                     }
                                 )
                             )
@@ -261,7 +267,7 @@ move id model =
                                 (\tile ->
                                     { tile
                                         | coords = newCrs
-                                        , tileType = Person newPathing Walking
+                                        , tileType = Person newPathing (Debug.log "step change" Walking)
                                     }
                                 )
                             )
@@ -269,7 +275,7 @@ move id model =
                 }
 
             else
-                { model | map = Dict.update id (Maybe.map (\tile -> { tile | coords = newCrs })) map }
+                { model | map = Dict.update id (Maybe.map (\tile -> { tile | coords = newCrs, tileType = Person pathing Walking })) map }
 
         -- Dict.update id (Maybe.map (\_ -> newValue)) dict
     in
@@ -304,8 +310,8 @@ generateCoord seed0 =
     ( ( toFloat x, toFloat y, toFloat z ), seed3 )
 
 
-generateNewRandomPath : Id -> Pathing -> Model -> Model
-generateNewRandomPath id pathing model =
+generateNewRandomPath : Id -> Pathing -> Coords -> Model -> Model
+generateNewRandomPath id pathing curCoords model =
     let
         { rseed, map } =
             model
@@ -313,11 +319,14 @@ generateNewRandomPath id pathing model =
         ( newDist, seed ) =
             generateCoord rseed
 
-        { currentStep } =
-            pathing
+        _ =
+            Debug.log "new dist" newDist
 
         newPath =
-            createPath currentStep newDist
+            createPath curCoords newDist
+
+        _ =
+            Debug.log "new path" newPath
 
         newPathing =
             case newPath of
@@ -326,6 +335,8 @@ generateNewRandomPath id pathing model =
 
                 _ ->
                     pathing
+
+        -- _ = Debug.log "newPathing" newPathing
     in
     { model
         | rseed = seed
@@ -345,19 +356,19 @@ generateNewRandomPath id pathing model =
 action : Id -> Model -> Model
 action id model =
     let
-        act ac pathing =
+        act ac pathing coords =
             case ac of
                 Walking ->
                     model
 
                 Idle ->
-                    generateNewRandomPath id pathing model
+                    generateNewRandomPath id pathing coords model
     in
     case Dict.get id model.map of
         Just tile ->
             case tile.tileType of
                 Person pathing ac ->
-                    act ac pathing
+                    act ac pathing tile.coords
 
                 _ ->
                     model

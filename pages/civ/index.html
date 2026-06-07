@@ -5294,54 +5294,6 @@ var $author$project$Civ$Person = F2(
 var $author$project$Civ$Tree = function (a) {
 	return {$: 'Tree', a: a};
 };
-var $elm$core$Basics$negate = function (n) {
-	return -n;
-};
-var $elm$core$Basics$abs = function (n) {
-	return (n < 0) ? (-n) : n;
-};
-var $author$project$Civ$createPath = F2(
-	function (s, e) {
-		var _v0 = s;
-		var sx = _v0.a;
-		var sy = _v0.b;
-		var sz = _v0.c;
-		var _v1 = e;
-		var ex = _v1.a;
-		var ey = _v1.b;
-		var ez = _v1.c;
-		var dx = ex - sx;
-		var dy = ey - sy;
-		var dz = ez - sz;
-		var md = A3(
-			$elm$core$List$foldl,
-			F2(
-				function (d, m) {
-					return A2(
-						$elm$core$Basics$max,
-						m,
-						$elm$core$Basics$abs(d));
-				}),
-			0,
-			_List_fromArray(
-				[dx, dy, dz]));
-		var step = F3(
-			function (it, st, d) {
-				return $elm$core$Basics$floor(((it * d) / md) + st);
-			});
-		return A2(
-			$elm$core$List$map,
-			function (it) {
-				return _Utils_Tuple3(
-					A3(step, it, sx, dx),
-					A3(step, it, sy, dy),
-					A3(step, it, sz, dz));
-			},
-			A2(
-				$elm$core$List$range,
-				0,
-				$elm$core$Basics$floor(md)));
-	});
 var $elm$core$Dict$RBEmpty_elm_builtin = {$: 'RBEmpty_elm_builtin'};
 var $elm$core$Dict$empty = $elm$core$Dict$RBEmpty_elm_builtin;
 var $elm$core$Dict$Black = {$: 'Black'};
@@ -5465,27 +5417,12 @@ var $elm$core$Dict$fromList = function (assocs) {
 		$elm$core$Dict$empty,
 		assocs);
 };
+var $elm$core$Basics$negate = function (n) {
+	return -n;
+};
 var $author$project$Civ$testMap = function () {
 	var pStart = _Utils_Tuple3(5, 1, 0);
-	var testPath = A2(
-		$author$project$Civ$createPath,
-		pStart,
-		_Utils_Tuple3(-10, -2, 0));
-	var testPathing = function () {
-		if (testPath.b && testPath.b.b) {
-			var cStep = testPath.a;
-			var _v1 = testPath.b;
-			var ntep = _v1.a;
-			var path = _v1.b;
-			return {currentStep: cStep, nextStep: ntep, path: path};
-		} else {
-			return {
-				currentStep: _Utils_Tuple3(1, 0, 0),
-				nextStep: _Utils_Tuple3(0, 0, 0),
-				path: testPath
-			};
-		}
-	}();
+	var testPathing = {currentStep: pStart, nextStep: pStart, path: _List_Nil};
 	return $elm$core$Dict$fromList(
 		_List_fromArray(
 			[
@@ -6061,6 +5998,111 @@ var $author$project$Civ$subscriptions = function (model) {
 var $author$project$Civ$ActionAll = {$: 'ActionAll'};
 var $author$project$Civ$MoveAll = {$: 'MoveAll'};
 var $author$project$Civ$Walking = {$: 'Walking'};
+var $elm$core$Basics$abs = function (n) {
+	return (n < 0) ? (-n) : n;
+};
+var $elm$core$List$append = F2(
+	function (xs, ys) {
+		if (!ys.b) {
+			return xs;
+		} else {
+			return A3($elm$core$List$foldr, $elm$core$List$cons, ys, xs);
+		}
+	});
+var $elm$core$List$concat = function (lists) {
+	return A3($elm$core$List$foldr, $elm$core$List$append, _List_Nil, lists);
+};
+var $elm$core$List$repeatHelp = F3(
+	function (result, n, value) {
+		repeatHelp:
+		while (true) {
+			if (n <= 0) {
+				return result;
+			} else {
+				var $temp$result = A2($elm$core$List$cons, value, result),
+					$temp$n = n - 1,
+					$temp$value = value;
+				result = $temp$result;
+				n = $temp$n;
+				value = $temp$value;
+				continue repeatHelp;
+			}
+		}
+	});
+var $elm$core$List$repeat = F2(
+	function (n, value) {
+		return A3($elm$core$List$repeatHelp, _List_Nil, n, value);
+	});
+var $elm$core$Basics$round = _Basics_round;
+var $author$project$Civ$createPath = F2(
+	function (s, e) {
+		var step = F2(
+			function (_v3, _v4) {
+				var x1 = _v3.a;
+				var y1 = _v3.b;
+				var z1 = _v3.c;
+				var _v5 = _v4.a;
+				var x2 = _v5.a;
+				var y2 = _v5.b;
+				var z2 = _v5.c;
+				var path = _v4.b;
+				var newLast = _Utils_Tuple3(x1 + x2, y1 + y2, z1 + z2);
+				return _Utils_Tuple2(
+					newLast,
+					_Utils_ap(
+						path,
+						_List_fromArray(
+							[newLast])));
+			});
+		var _v0 = s;
+		var sx = _v0.a;
+		var sy = _v0.b;
+		var sz = _v0.c;
+		var _v1 = e;
+		var ex = _v1.a;
+		var ey = _v1.b;
+		var ez = _v1.c;
+		var dx = ex - sx;
+		var dxs = A2(
+			$elm$core$List$repeat,
+			$elm$core$Basics$abs(
+				$elm$core$Basics$round(dx)),
+			_Utils_Tuple3(
+				dx / $elm$core$Basics$abs(dx),
+				0,
+				0));
+		var dy = ey - sy;
+		var dys = A2(
+			$elm$core$List$repeat,
+			$elm$core$Basics$abs(
+				$elm$core$Basics$round(dy)),
+			_Utils_Tuple3(
+				0,
+				dy / $elm$core$Basics$abs(dy),
+				0));
+		var dz = ez - sz;
+		var dzs = A2(
+			$elm$core$List$repeat,
+			$elm$core$Basics$abs(
+				$elm$core$Basics$round(dz)),
+			_Utils_Tuple3(
+				0,
+				0,
+				dz / $elm$core$Basics$abs(dz)));
+		var ds = $elm$core$List$concat(
+			_List_fromArray(
+				[dxs, dys, dzs]));
+		var _v2 = A3(
+			$elm$core$List$foldl,
+			step,
+			_Utils_Tuple2(
+				s,
+				_List_fromArray(
+					[s])),
+			ds);
+		var resPath = _v2.b;
+		return resPath;
+	});
 var $elm$random$Random$Generator = function (a) {
 	return {$: 'Generator', a: a};
 };
@@ -6123,6 +6165,7 @@ var $author$project$Civ$generateCoord = function (seed0) {
 		_Utils_Tuple3(x, y, z),
 		seed3);
 };
+var $elm$core$Debug$log = _Debug_log;
 var $elm$core$Maybe$map = F2(
 	function (f, maybe) {
 		if (maybe.$ === 'Just') {
@@ -6506,23 +6549,21 @@ var $elm$core$Dict$update = F3(
 			return A2($elm$core$Dict$remove, targetKey, dictionary);
 		}
 	});
-var $author$project$Civ$generateNewRandomPath = F3(
-	function (id, pathing, model) {
+var $author$project$Civ$generateNewRandomPath = F4(
+	function (id, pathing, curCoords, model) {
 		var _v0 = model;
 		var rseed = _v0.rseed;
 		var map = _v0.map;
 		var _v1 = $author$project$Civ$generateCoord(rseed);
 		var newDist = _v1.a;
 		var seed = _v1.b;
-		var _v2 = pathing;
-		var currentStep = _v2.currentStep;
-		var newPath = A2($author$project$Civ$createPath, currentStep, newDist);
+		var newPath = A2($author$project$Civ$createPath, curCoords, newDist);
 		var newPathing = function () {
 			if (newPath.b && newPath.b.b) {
 				var cStep = newPath.a;
-				var _v4 = newPath.b;
-				var nextStep = _v4.a;
-				var path = _v4.b;
+				var _v5 = newPath.b;
+				var nextStep = _v5.a;
+				var path = _v5.b;
 				return _Utils_update(
 					pathing,
 					{currentStep: cStep, nextStep: nextStep, path: path});
@@ -6530,6 +6571,8 @@ var $author$project$Civ$generateNewRandomPath = F3(
 				return pathing;
 			}
 		}();
+		var _v2 = A2($elm$core$Debug$log, 'new dist', newDist);
+		var _v3 = A2($elm$core$Debug$log, 'new path', newPath);
 		return _Utils_update(
 			model,
 			{
@@ -6550,12 +6593,12 @@ var $author$project$Civ$generateNewRandomPath = F3(
 	});
 var $author$project$Civ$action = F2(
 	function (id, model) {
-		var act = F2(
-			function (ac, pathing) {
+		var act = F3(
+			function (ac, pathing, coords) {
 				if (ac.$ === 'Walking') {
 					return model;
 				} else {
-					return A3($author$project$Civ$generateNewRandomPath, id, pathing, model);
+					return A4($author$project$Civ$generateNewRandomPath, id, pathing, coords, model);
 				}
 			});
 		var _v0 = A2($elm$core$Dict$get, id, model.map);
@@ -6565,7 +6608,7 @@ var $author$project$Civ$action = F2(
 			if (_v1.$ === 'Person') {
 				var pathing = _v1.a;
 				var ac = _v1.b;
-				return A2(act, ac, pathing);
+				return A3(act, ac, pathing, tile.coords);
 			} else {
 				return model;
 			}
@@ -6638,7 +6681,7 @@ var $author$project$Civ$move = F2(
 				var sx = _v5.a;
 				var sy = _v5.b;
 				var sz = _v5.c;
-				var isDoneWalking = _Utils_eq(currentStep, nextStep);
+				var isDoneWalking = $elm$core$List$length(path) < 1;
 				var newPathing = function () {
 					if (path.b) {
 						var nStep = path.a;
@@ -6661,6 +6704,7 @@ var $author$project$Civ$move = F2(
 					$elm$core$Basics$ge(1 / $author$project$Civ$fps),
 					_List_fromArray(
 						[(x + dx) - ex, (y + dy) - ey, (z + dz) - ez]));
+				var shit = _Utils_Tuple3((x + dx) - ex, (y + dy) - ey, (z + dz) - ez);
 				return isDoneWalking ? _Utils_update(
 					model,
 					{
@@ -6672,7 +6716,14 @@ var $author$project$Civ$move = F2(
 									return _Utils_update(
 										tile,
 										{
-											tileType: A2($author$project$Civ$Person, pathing, $author$project$Civ$Idle)
+											coords: _Utils_Tuple3(
+												$elm$core$Basics$round(x),
+												$elm$core$Basics$round(y),
+												$elm$core$Basics$round(z)),
+											tileType: A2(
+												$author$project$Civ$Person,
+												pathing,
+												A2($elm$core$Debug$log, 'done walking', $author$project$Civ$Idle))
 										});
 								}),
 							map)
@@ -6688,7 +6739,10 @@ var $author$project$Civ$move = F2(
 										tile,
 										{
 											coords: newCrs,
-											tileType: A2($author$project$Civ$Person, newPathing, $author$project$Civ$Walking)
+											tileType: A2(
+												$author$project$Civ$Person,
+												newPathing,
+												A2($elm$core$Debug$log, 'step change', $author$project$Civ$Walking))
 										});
 								}),
 							map)
@@ -6702,7 +6756,10 @@ var $author$project$Civ$move = F2(
 								function (tile) {
 									return _Utils_update(
 										tile,
-										{coords: newCrs});
+										{
+											coords: newCrs,
+											tileType: A2($author$project$Civ$Person, pathing, $author$project$Civ$Walking)
+										});
 								}),
 							map)
 					}));
@@ -6732,7 +6789,6 @@ var $author$project$Civ$moveAll = function (model) {
 		model.people);
 };
 var $elm$core$Platform$Cmd$none = $elm$core$Platform$Cmd$batch(_List_Nil);
-var $elm$core$Basics$round = _Basics_round;
 var $author$project$Civ$update = F2(
 	function (msg, model) {
 		switch (msg.$) {
@@ -6782,17 +6838,6 @@ var $author$project$Civ$update = F2(
 	});
 var $elm$html$Html$a = _VirtualDom_node('a');
 var $elm$html$Html$div = _VirtualDom_node('div');
-var $elm$core$List$append = F2(
-	function (xs, ys) {
-		if (!ys.b) {
-			return xs;
-		} else {
-			return A3($elm$core$List$foldr, $elm$core$List$cons, ys, xs);
-		}
-	});
-var $elm$core$List$concat = function (lists) {
-	return A3($elm$core$List$foldr, $elm$core$List$append, _List_Nil, lists);
-};
 var $elm$core$List$concatMap = F2(
 	function (f, list) {
 		return $elm$core$List$concat(
