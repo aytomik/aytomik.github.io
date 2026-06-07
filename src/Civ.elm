@@ -7,6 +7,7 @@ import Browser.Navigation as Nav
 import Dict exposing (Dict)
 import Html exposing (..)
 import Html.Attributes exposing (..)
+import Random
 import Svg
 import Svg.Attributes as SvgAtt
 import Task
@@ -19,17 +20,25 @@ hexRad =
     40
 
 
-
--- per second
 fps : Float
 fps =
     24
 
 
+initialSeed : Random.Seed
+initialSeed =
+    Random.initialSeed 42
+
+
 type TileType
     = Tree Int
       -- | Stone Int
-    | Person Pathing
+    | Person Pathing Action
+
+
+type Action
+    = Idle
+    | Walking
 
 
 
@@ -62,16 +71,18 @@ type alias Model =
     { map : Map
     , size : ( Int, Int )
     , people : List Id
+    , rseed : Random.Seed
     }
 
 
 type Msg
-    = MoveAll
-    | GotViewport Dom.Viewport
+    = GotViewport Dom.Viewport
     | WindowResized Int Int
     | UrlChanged Url.Url
     | LinkClicked Browser.UrlRequest
     | Tick Time.Posix
+    | MoveAll
+    | ActionAll
 
 
 testMap : Map
@@ -99,16 +110,22 @@ testMap =
                     { currentStep = ( 1, 0, 0 ), nextStep = ( 0, 0, 0 ), path = testPath }
     in
     Dict.fromList
-        [ ( 1, { tileType = Person testPathing, coords = pStart } )
+        [ ( 1, { tileType = Person testPathing Idle, coords = pStart } )
         , ( 2, { tileType = Tree 3, coords = ( 0, 0, 0 ) } )
-        , ( 3, { tileType = Tree 3, coords = ( 0, 1, 0 ) } )
-        , ( 4, { tileType = Tree 3, coords = ( 0, 2, 0 ) } )
+        , ( 3, { tileType = Tree 3, coords = ( 5, 3, 0 ) } )
+        , ( 4, { tileType = Tree 3, coords = ( -5, 2, -6 ) } )
         ]
 
 
 init : () -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
 init flags url key =
-    ( { map = testMap, size = ( 1084, 1920 ), people = [ 1 ] }, Task.perform GotViewport Dom.getViewport )
+    ( { map = testMap
+      , size = ( 1084, 1920 )
+      , people = [ 1 ]
+      , rseed = initialSeed
+      }
+    , Task.perform GotViewport Dom.getViewport
+    )
 
 
 
@@ -171,14 +188,22 @@ moveAll model =
     List.foldl (\id md -> move id md) model model.people
 
 
+actionAll : Model -> Model
+actionAll model =
+    List.foldl (\id md -> action id md) model model.people
+
+
 move : Id -> Model -> Model
 move id model =
     let
         { map } =
             model
 
-        mv crs { currentStep, nextStep, path } =
+        mv crs pathing =
             let
+                { currentStep, nextStep, path } =
+                    pathing
+
                 ( x, y, z ) =
                     crs
 
@@ -187,15 +212,6 @@ move id model =
 
                 ( ex, ey, ez ) =
                     nextStep
-
-                _ =
-                    Debug.log "crs" crs
-
-                _ =
-                    Debug.log "currentStep" currentStep
-
-                _ =
-                    Debug.log "nextStep" nextStep
 
                 dx =
                     (ex - sx) / fps
@@ -212,6 +228,8 @@ move id model =
                 isStepChange =
                     List.all ((>=) (1 / fps)) [ x + dx - ex, y + dy - ey, z + dz - ez ]
 
+                isDoneWalking = currentStep == nextStep
+
                 newPathing : Pathing
                 newPathing =
                     case path of
@@ -221,8 +239,34 @@ move id model =
                         _ ->
                             { currentStep = nextStep, nextStep = nextStep, path = path }
             in
-            if isStepChange then
-                { model | map = Dict.update id (Maybe.map (\tile -> { tile | coords = newCrs, tileType = Person newPathing })) map }
+            if isDoneWalking then
+                { model
+                    | map =
+                        Dict.update id
+                            (Maybe.map
+                                (\tile ->
+                                    { tile
+                                        | tileType = Person pathing Idle
+                                    }
+                                )
+                            )
+                            map
+                }
+
+            else if isStepChange then
+                { model
+                    | map =
+                        Dict.update id
+                            (Maybe.map
+                                (\tile ->
+                                    { tile
+                                        | coords = newCrs
+                                        , tileType = Person newPathing Walking
+                                    }
+                                )
+                            )
+                            map
+                }
 
             else
                 { model | map = Dict.update id (Maybe.map (\tile -> { tile | coords = newCrs })) map }
@@ -232,8 +276,88 @@ move id model =
     case Dict.get id model.map of
         Just tile ->
             case tile.tileType of
-                Person pathing ->
+                Person pathing _ ->
                     mv tile.coords pathing
+
+                _ ->
+                    model
+
+        Nothing ->
+            model
+
+
+generateCoord : Random.Seed -> ( Coords, Random.Seed )
+generateCoord seed0 =
+    let
+        gen =
+            Random.int -4 4
+
+        ( x, seed1 ) =
+            Random.step gen seed0
+
+        ( y, seed2 ) =
+            Random.step gen seed1
+
+        ( z, seed3 ) =
+            Random.step gen seed2
+    in
+    ( ( toFloat x, toFloat y, toFloat z ), seed3 )
+
+
+generateNewRandomPath : Id -> Pathing -> Model -> Model
+generateNewRandomPath id pathing model =
+    let
+        { rseed, map } =
+            model
+
+        ( newDist, seed ) =
+            generateCoord rseed
+
+        { currentStep } =
+            pathing
+
+        newPath =
+            createPath currentStep newDist
+
+        newPathing =
+            case newPath of
+                cStep :: nextStep :: path ->
+                    { pathing | currentStep = cStep, nextStep = nextStep, path = path }
+
+                _ ->
+                    pathing
+    in
+    { model
+        | rseed = seed
+        , map =
+            Dict.update id
+                (Maybe.map
+                    (\tile ->
+                        { tile
+                            | tileType = Person newPathing Walking
+                        }
+                    )
+                )
+                map
+    }
+
+
+action : Id -> Model -> Model
+action id model =
+    let
+        act ac pathing =
+            case ac of
+                Walking ->
+                    model
+
+                Idle ->
+                    generateNewRandomPath id pathing model
+    in
+    case Dict.get id model.map of
+        Just tile ->
+            case tile.tileType of
+                Person pathing ac ->
+                    act ac pathing
 
                 _ ->
                     model
@@ -248,6 +372,9 @@ update msg model =
         MoveAll ->
             ( moveAll model, Cmd.none )
 
+        ActionAll ->
+            ( actionAll model, Cmd.none )
+
         WindowResized w h ->
             ( { model | size = ( w, h ) }, Cmd.none )
 
@@ -260,8 +387,10 @@ update msg model =
         LinkClicked _ ->
             ( model, Cmd.none )
 
+        -- Tick _ ->
+        --     ( model, dispatch ActionAll )
         Tick _ ->
-            ( model, dispatch MoveAll )
+            ( model, Cmd.batch [ dispatch MoveAll, dispatch ActionAll ] )
 
 
 
@@ -413,7 +542,7 @@ renderTile ( wi, hi ) tile =
         Tree _ ->
             Svg.circle [ SvgAtt.cx (String.fromFloat x), SvgAtt.cy (String.fromFloat y), SvgAtt.r "20", SvgAtt.fill "green" ] []
 
-        Person _ ->
+        Person _ _ ->
             Svg.circle [ SvgAtt.cx (String.fromFloat x), SvgAtt.cy (String.fromFloat y), SvgAtt.r "20", SvgAtt.fill "#ff4500" ] []
 
 
