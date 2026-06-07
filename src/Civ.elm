@@ -10,21 +10,38 @@ import Html.Attributes exposing (..)
 import Svg
 import Svg.Attributes as SvgAtt
 import Task
+import Time
 import Url
 
 
+hexRad : Float
 hexRad =
     40
+
+
+
+-- per second
+fps : Float
+fps =
+    24
 
 
 type TileType
     = Tree Int
       -- | Stone Int
-    | Person
+    | Person Pathing
+
+
+
+-- (x, y, z)
 
 
 type alias Coords =
-    { x : Float, y : Float, z : Float }
+    ( Float, Float, Float )
+
+
+type alias Pathing =
+    { currentStep : Coords, nextStep : Coords, path : List Coords }
 
 
 type alias Tile =
@@ -44,15 +61,17 @@ type alias Map =
 type alias Model =
     { map : Map
     , size : ( Int, Int )
+    , people : List Id
     }
 
 
 type Msg
-    = Move Id Coords
+    = MoveAll
     | GotViewport Dom.Viewport
     | WindowResized Int Int
     | UrlChanged Url.Url
     | LinkClicked Browser.UrlRequest
+    | Tick Time.Posix
 
 
 testMap : Map
@@ -63,19 +82,40 @@ testMap : Map
 
 
 testMap =
+    let
+        pStart =
+            ( 5, 1, 0 )
+
+        testPath =
+            createPath pStart ( -10, -2, 0 )
+
+        testPathing : Pathing
+        testPathing =
+            case testPath of
+                cStep :: ntep :: path ->
+                    { currentStep = cStep, nextStep = ntep, path = path }
+
+                _ ->
+                    { currentStep = ( 1, 0, 0 ), nextStep = ( 0, 0, 0 ), path = testPath }
+    in
     Dict.fromList
-        [ ( 1, { tileType = Tree 3, coords = { x = 0, y = 0, z = 0 } } )
-        , ( 2, { tileType = Tree 3, coords = { x = 0, y = 3, z = 0 } } )
-        , ( 3, { tileType = Person, coords = { x = 1, y = 0, z = 0 } } )
+        [ ( 1, { tileType = Person testPathing, coords = pStart } )
+        , ( 2, { tileType = Tree 3, coords = ( 0, 0, 0 ) } )
+        , ( 3, { tileType = Tree 3, coords = ( 0, 1, 0 ) } )
+        , ( 4, { tileType = Tree 3, coords = ( 0, 2, 0 ) } )
         ]
 
 
 init : () -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
 init flags url key =
-    ( { map = testMap, size = ( 1084, 1920 ) }, Task.perform GotViewport Dom.getViewport )
+    ( { map = testMap, size = ( 1084, 1920 ), people = [ 1 ] }, Task.perform GotViewport Dom.getViewport )
 
 
-createXY : List Int -> List Int -> List ( Int, Int )
+
+-- UTILS
+
+
+createXY : List Float -> List Float -> List ( Float, Float )
 createXY xs ys =
     List.concatMap (\x -> List.map (\y -> ( x, y )) ys) xs
 
@@ -85,25 +125,128 @@ fractionalModBy modulus x =
     x - modulus * toFloat (floor (x / modulus))
 
 
-hex2xy : Coords -> ( Int, Int )
-hex2xy { x, y, z } =
-    ( floor (hexRad * 2 * (x + y / 2 - z / 2)), floor (hexRad * 2 * (y + z) * sqrt 3 / 2) )
+hex2xy : Coords -> ( Float, Float )
+hex2xy ( x, y, z ) =
+    ( hexRad * sqrt 3 * (x + y / 2 - z / 2), hexRad * (y + z) * sqrt 3 * sqrt 3 / 2 )
 
 
-move : Id -> Coords -> Model -> Model
-move id dcor model =
+createPath : Coords -> Coords -> List Coords
+createPath s e =
     let
-        newModel =
-            model
+        ( sx, sy, sz ) =
+            s
+
+        ( ex, ey, ez ) =
+            e
+
+        dx =
+            ex - sx
+
+        dy =
+            ey - sy
+
+        dz =
+            ez - sz
+
+        md =
+            List.foldl (\d m -> abs d |> Basics.max m) 0 [ dx, dy, dz ]
+
+        step it st d =
+            (toFloat it * d / md + st) |> floor |> toFloat
     in
-    newModel
+    List.map (\it -> ( step it sx dx, step it sy dy, step it sz dz )) <| List.range 0 (floor md)
+
+
+dispatch : msg -> Cmd msg
+dispatch msg =
+    Task.succeed msg |> Task.perform identity
+
+
+
+-- UTILS
+
+
+moveAll : Model -> Model
+moveAll model =
+    List.foldl (\id md -> move id md) model model.people
+
+
+move : Id -> Model -> Model
+move id model =
+    let
+        { map } =
+            model
+
+        mv crs { currentStep, nextStep, path } =
+            let
+                ( x, y, z ) =
+                    crs
+
+                ( sx, sy, sz ) =
+                    currentStep
+
+                ( ex, ey, ez ) =
+                    nextStep
+
+                _ =
+                    Debug.log "crs" crs
+
+                _ =
+                    Debug.log "currentStep" currentStep
+
+                _ =
+                    Debug.log "nextStep" nextStep
+
+                dx =
+                    (ex - sx) / fps
+
+                dy =
+                    (ey - sy) / fps
+
+                dz =
+                    (ez - sz) / fps
+
+                newCrs =
+                    ( x + dx, y + dy, z + dz )
+
+                isStepChange =
+                    List.all ((>=) (1 / fps)) [ x + dx - ex, y + dy - ey, z + dz - ez ]
+
+                newPathing : Pathing
+                newPathing =
+                    case path of
+                        nStep :: nPath ->
+                            { currentStep = nextStep, nextStep = nStep, path = nPath }
+
+                        _ ->
+                            { currentStep = nextStep, nextStep = nextStep, path = path }
+            in
+            if isStepChange then
+                { model | map = Dict.update id (Maybe.map (\tile -> { tile | coords = newCrs, tileType = Person newPathing })) map }
+
+            else
+                { model | map = Dict.update id (Maybe.map (\tile -> { tile | coords = newCrs })) map }
+
+        -- Dict.update id (Maybe.map (\_ -> newValue)) dict
+    in
+    case Dict.get id model.map of
+        Just tile ->
+            case tile.tileType of
+                Person pathing ->
+                    mv tile.coords pathing
+
+                _ ->
+                    model
+
+        Nothing ->
+            model
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        Move id dst ->
-            ( move id dst model, Cmd.none )
+        MoveAll ->
+            ( moveAll model, Cmd.none )
 
         WindowResized w h ->
             ( { model | size = ( w, h ) }, Cmd.none )
@@ -117,64 +260,58 @@ update msg model =
         LinkClicked _ ->
             ( model, Cmd.none )
 
+        Tick _ ->
+            ( model, dispatch MoveAll )
+
 
 
 -- RENDER
 
 
-drawHex : Int -> Int -> Int -> Html Msg
+drawHex : Float -> Float -> Float -> Html Msg
 drawHex x y r =
     let
-        fx =
-            toFloat x
-
-        fy =
-            toFloat y
-
-        fr =
-            toFloat r
-
         -- p1
         x1 =
-            String.fromInt x
+            String.fromFloat x
 
         y1 =
-            String.fromInt (y + r)
+            String.fromFloat (y + r)
 
         -- p2
         x2 =
-            String.fromInt (round (fx + fr * sqrt 3 / 2))
+            String.fromFloat (x + r * sqrt 3 / 2)
 
         y2 =
-            String.fromInt (round (fy + fr / 2))
+            String.fromFloat (y + r / 2)
 
         -- p3
         x3 =
-            String.fromInt (round (fx + fr * sqrt 3 / 2))
+            String.fromFloat (x + r * sqrt 3 / 2)
 
         y3 =
-            String.fromInt (round (fy - fr / 2))
+            String.fromFloat (y - r / 2)
 
         -- p4
         x4 =
-            String.fromInt x
+            String.fromFloat x
 
         y4 =
-            String.fromInt (y - r)
+            String.fromFloat (y - r)
 
         -- p5
         x5 =
-            String.fromInt (round (fx - fr * sqrt 3 / 2))
+            String.fromFloat (x - r * sqrt 3 / 2)
 
         y5 =
-            String.fromInt (round (fy - fr / 2))
+            String.fromFloat (y - r / 2)
 
         -- p5
         x6 =
-            String.fromInt (round (fx - fr * sqrt 3 / 2))
+            String.fromFloat (x - r * sqrt 3 / 2)
 
         y6 =
-            String.fromInt (round (fy + fr / 2))
+            String.fromFloat (y + r / 2)
 
         path =
             x1 ++ "," ++ y1 ++ " " ++ x2 ++ "," ++ y2 ++ " " ++ x3 ++ "," ++ y3 ++ " " ++ x4 ++ "," ++ y4 ++ " " ++ x5 ++ "," ++ y5 ++ " " ++ x6 ++ "," ++ y6
@@ -185,49 +322,51 @@ drawHex x y r =
 drawGrid : Model -> Html Msg
 drawGrid model =
     let
-        ( w, h ) =
+        ( wi, hi ) =
             model.size
+
+        w =
+            toFloat wi
+
+        h =
+            toFloat hi
 
         r =
             hexRad
 
-        wf =
-            toFloat w
-
-        hf =
-            toFloat h
+        xoff =
+            fractionalModBy (r * sqrt 3) (w / 2)
 
         -- xoff =
-        --     fractionalModBy (toFloat r * sqrt 3) (wf / 2) * -1
-        xoff = 0
+        --     0
+        yoff =
+            fractionalModBy (r * 3) (h / 2)
 
         -- yoff =
-        --     fractionalModBy (toFloat r * 3) (hf / 2) * -1
-        yoff = 0
-
+        --     0
         wn1 =
-            ceiling (wf / (r * sqrt 3))
+            ceiling (w / (r * sqrt 3))
 
         wn2 =
             wn1 + 1
 
         yn1 =
-            1 + 2 * ceiling (hf / (6 * r))
+            1 + 2 * ceiling (h / (6 * r))
 
         yn2 =
             yn1 - 2
 
         x1 =
-            List.map (\x -> floor (xoff + toFloat x * sqrt 3 * r)) (List.range 0 wn1)
+            List.map (\x -> xoff + toFloat x * sqrt 3 * r) (List.range -1 wn1)
 
         x2 =
-            List.map (\x -> floor (xoff + toFloat x * sqrt 3 * r + sqrt 3 * r / 2)) (List.range 0 wn2)
+            List.map (\x -> xoff + toFloat x * sqrt 3 * r + sqrt 3 * r / 2) (List.range -1 wn2)
 
         y1 =
-            List.map (\y -> floor (yoff + toFloat y * 3 * r)) (List.range 0 yn1)
+            List.map (\y -> yoff + toFloat y * 3 * r) (List.range -1 yn1)
 
         y2 =
-            List.map (\y -> floor (yoff + toFloat y * 3 * r + 1.5 * r)) (List.range 0 yn2)
+            List.map (\y -> yoff + toFloat y * 3 * r + 1.5 * r) (List.range -1 yn2)
 
         coords =
             List.concat
@@ -238,36 +377,44 @@ drawGrid model =
         -- coords =
         --     [ ( 0, 0 ), ( w // 2, h // 2 ), ( w - 100, h - 100 ), ( 20, 20 ), ( 100, 0 ) ]
     in
-    Svg.svg [ SvgAtt.width (String.fromInt (w - 20)), SvgAtt.height (String.fromInt (h - 50)) ]
+    Svg.svg [ SvgAtt.width (String.fromFloat (w - 20)), SvgAtt.height (String.fromFloat (h - 50)) ]
         (List.map (\( x, y ) -> drawHex x y r) coords)
 
 
 renderTile : ( Int, Int ) -> Tile -> Html Msg
-renderTile ( w, h ) tile =
+renderTile ( wi, hi ) tile =
     let
+        w =
+            toFloat wi
+
+        h =
+            toFloat hi
+
         ( x1, y1 ) =
             hex2xy tile.coords
 
         -- xoff =
         --     floor (fractionalModBy (toFloat hexRad * sqrt 3) (toFloat w / 2) * -1)
-        xoff = 0
+        xoff =
+            0
 
         -- yoff =
         --     floor (fractionalModBy (toFloat hexRad * 3) (toFloat h / 2) * -1)
-        yoff = 0
+        yoff =
+            0
 
         x =
-            xoff + x1 + w // 2
+            xoff + x1 + w / 2
 
         y =
-            yoff + y1 + h // 2
+            yoff + y1 + h / 2
     in
     case tile.tileType of
         Tree _ ->
-            Svg.circle [ SvgAtt.cx (String.fromInt x), SvgAtt.cy (String.fromInt y), SvgAtt.r "20", SvgAtt.fill "green" ] []
+            Svg.circle [ SvgAtt.cx (String.fromFloat x), SvgAtt.cy (String.fromFloat y), SvgAtt.r "20", SvgAtt.fill "green" ] []
 
-        Person ->
-            Svg.circle [ SvgAtt.cx (String.fromInt x), SvgAtt.cy (String.fromInt y), SvgAtt.r "20", SvgAtt.fill "#ff4500" ] []
+        Person _ ->
+            Svg.circle [ SvgAtt.cx (String.fromFloat x), SvgAtt.cy (String.fromFloat y), SvgAtt.r "20", SvgAtt.fill "#ff4500" ] []
 
 
 drawTiles : Model -> Html Msg
@@ -325,7 +472,10 @@ view model =
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
-    Browser.Events.onResize WindowResized
+    Sub.batch
+        [ Browser.Events.onResize WindowResized
+        , Time.every (1000 / fps) (\time -> Tick time)
+        ]
 
 
 
