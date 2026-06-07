@@ -7,6 +7,7 @@ import Browser.Navigation as Nav
 import Dict exposing (Dict)
 import Html exposing (..)
 import Html.Attributes exposing (..)
+import Html.Events exposing (onClick)
 import Random
 import Svg
 import Svg.Attributes as SvgAtt
@@ -22,7 +23,7 @@ hexRad =
 
 fps : Float
 fps =
-    24
+    12
 
 
 initialSeed : Random.Seed
@@ -72,6 +73,7 @@ type alias Model =
     , size : ( Int, Int )
     , people : List Id
     , rseed : Random.Seed
+    , pause : Bool
     }
 
 
@@ -81,6 +83,7 @@ type Msg
     | UrlChanged Url.Url
     | LinkClicked Browser.UrlRequest
     | Tick Time.Posix
+    | TogglePause
     | MoveAll
     | ActionAll
 
@@ -115,6 +118,7 @@ init flags url key =
       , size = ( 1084, 1920 )
       , people = [ 1 ]
       , rseed = initialSeed
+      , pause = False
       }
     , Task.perform GotViewport Dom.getViewport
     )
@@ -159,15 +163,25 @@ createPath s e =
 
         dxs =
             List.repeat (abs <| round dx) ( dx / abs dx, 0, 0 )
+
         dys =
             List.repeat (abs <| round dy) ( 0, dy / abs dy, 0 )
+
         dzs =
             List.repeat (abs <| round dz) ( 0, 0, dz / abs dz )
-        ds = List.concat [dxs, dys, dzs]
 
-        step (x1, y1, z1) ((x2, y2, z2), path) = let newLast = (x1 + x2, y1 + y2, z1 + z2)in (newLast, path ++ [newLast])
+        ds =
+            List.concat [ dxs, dys, dzs ]
 
-        (_, resPath) = List.foldl step (s, [s]) ds
+        step ( x1, y1, z1 ) ( ( x2, y2, z2 ), path ) =
+            let
+                newLast =
+                    ( x1 + x2, y1 + y2, z1 + z2 )
+            in
+            ( newLast, path ++ [ newLast ] )
+
+        ( _, resPath ) =
+            List.foldl step ( s, [ s ] ) ds
     in
     resPath
 
@@ -251,8 +265,10 @@ move id model =
                             (Maybe.map
                                 (\tile ->
                                     { tile
-                                        | coords = (toFloat <| round x, toFloat <| round y, toFloat <| round z)
-                                        , tileType = Person pathing (Debug.log "done walking" Idle)
+                                        | coords = Debug.log "idle coors" ( toFloat <| round x, toFloat <| round y, toFloat <| round z )
+
+                                        -- | coords = newCrs
+                                        , tileType = Person newPathing (Debug.log "done walking" Idle)
                                     }
                                 )
                             )
@@ -328,6 +344,9 @@ generateNewRandomPath id pathing curCoords model =
         _ =
             Debug.log "new path" newPath
 
+        isPathTooShort =
+            List.length newPath < 2
+
         newPathing =
             case newPath of
                 cStep :: nextStep :: path ->
@@ -338,19 +357,23 @@ generateNewRandomPath id pathing curCoords model =
 
         -- _ = Debug.log "newPathing" newPathing
     in
-    { model
-        | rseed = seed
-        , map =
-            Dict.update id
-                (Maybe.map
-                    (\tile ->
-                        { tile
-                            | tileType = Person newPathing Walking
-                        }
+    if isPathTooShort then
+        { model | rseed = seed }
+
+    else
+        { model
+            | rseed = seed
+            , map =
+                Dict.update id
+                    (Maybe.map
+                        (\tile ->
+                            { tile
+                                | tileType = Person newPathing Walking
+                            }
+                        )
                     )
-                )
-                map
-    }
+                    map
+        }
 
 
 action : Id -> Model -> Model
@@ -381,10 +404,10 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         MoveAll ->
-            ( moveAll model, Cmd.none )
+            ( moveAll model, Debug.log "moveAll" Cmd.none )
 
         ActionAll ->
-            ( actionAll model, Cmd.none )
+            ( actionAll model, Debug.log "actionAll" Cmd.none )
 
         WindowResized w h ->
             ( { model | size = ( w, h ) }, Cmd.none )
@@ -398,10 +421,14 @@ update msg model =
         LinkClicked _ ->
             ( model, Cmd.none )
 
-        -- Tick _ ->
-        --     ( model, dispatch ActionAll )
+        TogglePause -> ({model | pause = not model.pause}, Cmd.none)
+
         Tick _ ->
-            ( model, Cmd.batch [ dispatch MoveAll, dispatch ActionAll ] )
+            if model.pause then
+                ( model, Cmd.none )
+
+            else
+                ( model, Cmd.batch [ dispatch MoveAll, dispatch ActionAll ] )
 
 
 
@@ -594,6 +621,7 @@ view model =
             ]
             [ a [ href "/" ] [ text "fuck you" ]
             , text "nothing to look for here, get fucking lost"
+            , button [onClick TogglePause] [text "fuck you"]
             ]
         , div
             [ style "padding" "10px"

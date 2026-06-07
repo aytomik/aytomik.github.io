@@ -5457,6 +5457,7 @@ var $author$project$Civ$init = F3(
 		return _Utils_Tuple2(
 			{
 				map: $author$project$Civ$testMap,
+				pause: false,
 				people: _List_fromArray(
 					[1]),
 				rseed: $author$project$Civ$initialSeed,
@@ -5776,7 +5777,7 @@ var $elm$time$Time$every = F2(
 		return $elm$time$Time$subscription(
 			A2($elm$time$Time$Every, interval, tagger));
 	});
-var $author$project$Civ$fps = 24;
+var $author$project$Civ$fps = 12;
 var $elm$browser$Browser$Events$Window = {$: 'Window'};
 var $elm$json$Json$Decode$field = _Json_decodeField;
 var $elm$json$Json$Decode$int = _Json_decodeInt;
@@ -6558,6 +6559,7 @@ var $author$project$Civ$generateNewRandomPath = F4(
 		var newDist = _v1.a;
 		var seed = _v1.b;
 		var newPath = A2($author$project$Civ$createPath, curCoords, newDist);
+		var isPathTooShort = $elm$core$List$length(newPath) < 2;
 		var newPathing = function () {
 			if (newPath.b && newPath.b.b) {
 				var cStep = newPath.a;
@@ -6573,7 +6575,9 @@ var $author$project$Civ$generateNewRandomPath = F4(
 		}();
 		var _v2 = A2($elm$core$Debug$log, 'new dist', newDist);
 		var _v3 = A2($elm$core$Debug$log, 'new path', newPath);
-		return _Utils_update(
+		return isPathTooShort ? _Utils_update(
+			model,
+			{rseed: seed}) : _Utils_update(
 			model,
 			{
 				map: A3(
@@ -6716,13 +6720,16 @@ var $author$project$Civ$move = F2(
 									return _Utils_update(
 										tile,
 										{
-											coords: _Utils_Tuple3(
-												$elm$core$Basics$round(x),
-												$elm$core$Basics$round(y),
-												$elm$core$Basics$round(z)),
+											coords: A2(
+												$elm$core$Debug$log,
+												'idle coors',
+												_Utils_Tuple3(
+													$elm$core$Basics$round(x),
+													$elm$core$Basics$round(y),
+													$elm$core$Basics$round(z))),
 											tileType: A2(
 												$author$project$Civ$Person,
-												pathing,
+												newPathing,
 												A2($elm$core$Debug$log, 'done walking', $author$project$Civ$Idle))
 										});
 								}),
@@ -6795,11 +6802,11 @@ var $author$project$Civ$update = F2(
 			case 'MoveAll':
 				return _Utils_Tuple2(
 					$author$project$Civ$moveAll(model),
-					$elm$core$Platform$Cmd$none);
+					A2($elm$core$Debug$log, 'moveAll', $elm$core$Platform$Cmd$none));
 			case 'ActionAll':
 				return _Utils_Tuple2(
 					$author$project$Civ$actionAll(model),
-					$elm$core$Platform$Cmd$none);
+					A2($elm$core$Debug$log, 'actionAll', $elm$core$Platform$Cmd$none));
 			case 'WindowResized':
 				var w = msg.a;
 				var h = msg.b;
@@ -6825,8 +6832,14 @@ var $author$project$Civ$update = F2(
 				return _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
 			case 'LinkClicked':
 				return _Utils_Tuple2(model, $elm$core$Platform$Cmd$none);
-			default:
+			case 'TogglePause':
 				return _Utils_Tuple2(
+					_Utils_update(
+						model,
+						{pause: !model.pause}),
+					$elm$core$Platform$Cmd$none);
+			default:
+				return model.pause ? _Utils_Tuple2(model, $elm$core$Platform$Cmd$none) : _Utils_Tuple2(
 					model,
 					$elm$core$Platform$Cmd$batch(
 						_List_fromArray(
@@ -6836,7 +6849,9 @@ var $author$project$Civ$update = F2(
 							])));
 		}
 	});
+var $author$project$Civ$TogglePause = {$: 'TogglePause'};
 var $elm$html$Html$a = _VirtualDom_node('a');
+var $elm$html$Html$button = _VirtualDom_node('button');
 var $elm$html$Html$div = _VirtualDom_node('div');
 var $elm$core$List$concatMap = F2(
 	function (f, list) {
@@ -7083,6 +7098,23 @@ var $elm$html$Html$Attributes$href = function (url) {
 		'href',
 		_VirtualDom_noJavaScriptUri(url));
 };
+var $elm$virtual_dom$VirtualDom$Normal = function (a) {
+	return {$: 'Normal', a: a};
+};
+var $elm$virtual_dom$VirtualDom$on = _VirtualDom_on;
+var $elm$html$Html$Events$on = F2(
+	function (event, decoder) {
+		return A2(
+			$elm$virtual_dom$VirtualDom$on,
+			event,
+			$elm$virtual_dom$VirtualDom$Normal(decoder));
+	});
+var $elm$html$Html$Events$onClick = function (msg) {
+	return A2(
+		$elm$html$Html$Events$on,
+		'click',
+		$elm$json$Json$Decode$succeed(msg));
+};
 var $elm$virtual_dom$VirtualDom$style = _VirtualDom_style;
 var $elm$html$Html$Attributes$style = $elm$virtual_dom$VirtualDom$style;
 var $elm$virtual_dom$VirtualDom$text = _VirtualDom_text;
@@ -7115,7 +7147,17 @@ var $author$project$Civ$view = function (model) {
 							[
 								$elm$html$Html$text('fuck you')
 							])),
-						$elm$html$Html$text('nothing to look for here, get fucking lost')
+						$elm$html$Html$text('nothing to look for here, get fucking lost'),
+						A2(
+						$elm$html$Html$button,
+						_List_fromArray(
+							[
+								$elm$html$Html$Events$onClick($author$project$Civ$TogglePause)
+							]),
+						_List_fromArray(
+							[
+								$elm$html$Html$text('fuck you')
+							]))
 					])),
 				A2(
 				$elm$html$Html$div,
